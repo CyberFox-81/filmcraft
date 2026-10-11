@@ -1,11 +1,21 @@
 //! The ArtCraft wordmark (first-party trademark, used with permission; see `docs/brand/` and
 //! AGENTS.md §1.8), decoded once and kept as a texture.
 
+#[cfg(not(feature = "unbranded"))]
 const LOGO_LIGHT_INK: &[u8] = include_bytes!("../../../docs/brand/artcraft-logo-white.png");
+#[cfg(not(feature = "unbranded"))]
 const LOGO_DARK_INK: &[u8] = include_bytes!("../../../docs/brand/artcraft-logo.png");
+
+/// Unbranded builds (the `unbranded` feature) draw no wordmark: modified builds must not carry
+/// the ArtCraft marks (`docs/brand/LICENSE-brand.txt`).
+#[cfg(feature = "unbranded")]
+pub fn wordmark(_ctx: &egui::Context, _dark: bool) -> Option<egui::TextureHandle> {
+    None
+}
 
 /// The wordmark for a dark (`dark = true`) or light UI: light ink on dark themes. Its aspect
 /// ratio is width / height of the returned texture.
+#[cfg(not(feature = "unbranded"))]
 pub fn wordmark(ctx: &egui::Context, dark: bool) -> Option<egui::TextureHandle> {
     let id = egui::Id::unique(("artcraft-wordmark", dark));
     if let Some(t) = ctx.data(|d| d.get_temp::<egui::TextureHandle>(id)) {

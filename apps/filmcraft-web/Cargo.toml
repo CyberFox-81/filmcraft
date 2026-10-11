@@ -12,6 +12,10 @@ workspace = true
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+[features]
+# See filmcraft-ui-egui's `unbranded`: for redistributed modified builds.
+unbranded = ["filmcraft-ui-egui/unbranded"]
+
 # Everything is wasm32-only: on other targets this crate is empty (so `cargo test --workspace`
 # and clippy stay cheap). Build with `cargo xtask web` (see docs/web.md).
 [target.'cfg(target_arch = "wasm32")'.dependencies]
