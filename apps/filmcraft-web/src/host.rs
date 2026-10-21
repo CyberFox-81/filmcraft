@@ -222,7 +222,9 @@ async fn open_project(here: String, blob: web_sys::Blob) -> Result<(), String> {
     let bytes = js_sys::Uint8Array::new(&buffer).to_vec();
     // The media it refers to that are on the parent's side and not here yet.
     let loaded = filmcraft_format::decode(&bytes).map_err(|e| format!("{here}: {e}"))?;
-    let wanted: Vec<String> = filmcraft_engine::relink::scan(&loaded.project, &fs::WebServices)
+    // In the browser the pool follows every stored path as it is.
+    let pool = filmcraft_engine::media_pool::MediaPool::default();
+    let wanted: Vec<String> = filmcraft_engine::relink::scan(&loaded.project, &pool, &fs::WebServices)
         .into_iter()
         .filter(|m| m.status == "missing" && m.path.starts_with(&format!("{PREFIX}/")))
         .map(|m| m.path)
