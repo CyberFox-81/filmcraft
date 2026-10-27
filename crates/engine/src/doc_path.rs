@@ -39,7 +39,7 @@ impl std::error::Error for NotFollowed {}
 /// where it was opened from.
 pub fn resolve(stored: &str, document: Option<&Path>) -> Result<String, NotFollowed> {
     let document = document.filter(|d| !d.as_os_str().is_empty()).map(|d| std::path::absolute(d).unwrap_or_else(|_| d.to_path_buf()));
-    let path: PathBuf = match craft_docpath::resolve_absolute(stored, document.as_deref()) {
+    let path: PathBuf = match resolve_absolute(stored, document.as_deref()) {
         Ok(path) => path,
         // Without a document, a relative path resolves but stays relative.
         Err(Refused::Invalid) if document.is_none() && craft_docpath::resolve(stored, None).is_ok_and(|p| !foreign_root(&p)) => {
@@ -48,6 +48,20 @@ pub fn resolve(stored: &str, document: Option<&Path>) -> Result<String, NotFollo
         Err(r) => return Err(NotFollowed::Refused(r)),
     };
     path.into_os_string().into_string().map_err(|_| NotFollowed::Refused(Refused::Invalid))
+}
+
+/// `craft_docpath::resolve_absolute`, with a rooted path (`/a/b`) counting as absolute everywhere
+/// but on Windows. It asks `Path::is_absolute`, which wants a Windows prefix on
+/// wasm32-unknown-unknown and so is never true there: every media path a project stores would be
+/// refused in the web build.
+fn resolve_absolute(stored: &str, document: Option<&Path>) -> Result<PathBuf, Refused> {
+    let path = craft_docpath::resolve(stored, document)?;
+    if is_rooted(&path) { Ok(path) } else { Err(Refused::Invalid) }
+}
+
+/// Whether `path` is absolute on the running platform (see [`resolve_absolute`]).
+fn is_rooted(path: &Path) -> bool {
+    if cfg!(windows) { path.is_absolute() } else { path.has_root() }
 }
 
 /// Whether an unresolved `craft_docpath::resolve` result starts with a drive (`C:`) or a share
@@ -63,6 +77,16 @@ fn foreign_root(path: &Path) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A rooted path is absolute without asking `Path::is_absolute`, which is never true on
+    /// wasm32-unknown-unknown (where every stored media path was refused).
+    #[cfg(not(windows))]
+    #[test]
+    fn rooted_paths_count_as_absolute() {
+        assert!(is_rooted(Path::new("/host/Videos/clip.mp4")));
+        assert!(!is_rooted(Path::new("Videos/clip.mp4")));
+        assert_eq!(resolve("clip.mp4", Some(Path::new("/host/Videos/cut.fcproj"))), Ok("/host/Videos/clip.mp4".to_string()));
+    }
 
     #[test]
     fn relative_paths_are_taken_from_the_document_folder() {
